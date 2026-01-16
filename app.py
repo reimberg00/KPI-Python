@@ -113,18 +113,67 @@ with tab1:
     else:
         st.warning("Dados ZC não encontrados ou filtro sem resultados.")
 
-# ABA 2: MEDIDAS QM
+# --- ABA 2: MEDIDAS QM ---
 with tab2:
     if not df_qm_f.empty:
-        st.subheader("🔧 Produtividade QM por Responsável")
+        st.subheader("🎯 Visão Geral QM")
+        
+        # 1. Preparação dos dados para o gráfico Geral
+        df_geral_qm = df_qm_f['Status_Visual'].value_counts().reset_index()
+        df_geral_qm.columns = ['Status', 'Total']
+        
+        # 2. Layout de Topo: Métricas e Gráfico de Rosca
+        col_m1, col_m2, col_g1 = st.columns([1, 1, 2])
+        
+        # Cálculo das métricas para os cards
+        total_encerradas = df_geral_qm[df_geral_qm['Status'] == 'Medida Encerrada']['Total'].sum()
+        total_liberadas = df_geral_qm[df_geral_qm['Status'] == 'Medida Liberada']['Total'].sum()
+        
+        with col_m1:
+            st.metric("Total Encerradas", int(total_encerradas))
+        with col_m2:
+            st.metric("Total Liberadas", int(total_liberadas))
+            
+        with col_g1:
+            # Gráfico de Rosca (Donut)
+            fig_donut = px.pie(
+                df_geral_qm, 
+                values='Total', 
+                names='Status', 
+                hole=0.5,
+                color='Status',
+                color_discrete_map=CORES_MAP,
+                height=250
+            )
+            fig_donut.update_traces(textinfo='percent+label')
+            fig_donut.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
+            st.plotly_chart(fig_donut, use_container_width=True)
+
+        st.markdown("---")
+        
+        # 3. Gráfico por Responsável (O detalhamento que já funcionava)
+        st.subheader("🔧 Produtividade Detalhada por Responsável")
         
         df_user_qm = df_qm_f.groupby(['Responsável', 'Status_Visual']).size().reset_index(name='Qtd')
         df_user_qm = df_user_qm.sort_values(by='Qtd', ascending=False)
 
-        fig_qm = px.bar(df_user_qm, x='Responsável', y='Qtd', color='Status_Visual', text='Qtd',
-                        barmode='group', color_discrete_map=CORES_MAP)
-        fig_qm.update_traces(textposition='outside')
-        fig_qm.update_layout(plot_bgcolor='rgba(0,0,0,0)', xaxis_tickangle=-45)
-        st.plotly_chart(fig_qm, use_container_width=True)
+        fig_qm_barra = px.bar(
+            df_user_qm, 
+            x='Responsável', 
+            y='Qtd', 
+            color='Status_Visual', 
+            text='Qtd',
+            barmode='group',
+            color_discrete_map=CORES_MAP
+        )
+        
+        fig_qm_barra.update_traces(textposition='outside')
+        fig_qm_barra.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)', 
+            xaxis_tickangle=-45,
+            margin=dict(t=20)
+        )
+        st.plotly_chart(fig_qm_barra, use_container_width=True)
+        
     else:
-        st.warning("Dados QM não encontrados ou filtro sem resultados.")
+        st.warning("Sem dados QM para exibir (verifique os filtros ou os arquivos).")
