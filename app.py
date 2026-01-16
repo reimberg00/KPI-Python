@@ -5,7 +5,7 @@ import plotly.express as px
 # 1. Configuração da Página
 st.set_page_config(page_title="Dashboard Manutenção Integrado", layout="wide")
 
-# Estilos CSS para Metricas
+# Estilos CSS
 st.markdown("""
     <style>
     [data-testid="stMetricValue"] { font-size: 28px; color: #00F294; }
@@ -20,6 +20,7 @@ st.markdown("---")
 def load_zc():
     try:
         df = pd.read_excel("Notas_ZC.xlsx")
+        # Referência: Coluna G "Data encermto."
         col_ref = "Data encermto."
         if col_ref in df.columns:
             df['Data_Ref'] = pd.to_datetime(df[col_ref], errors='coerce')
@@ -30,17 +31,14 @@ def load_zc():
 def load_qm():
     try:
         df = pd.read_excel("Notas_QM.xlsx")
-        # Referência: Dta.criação
         df['Data_Ref'] = pd.to_datetime(df['Dta.criação'], errors='coerce')
         
-        # Tradução dos Status
         map_status = {'MEDL': 'Medida Liberada', 'MEDE': 'Medida Encerrada'}
         df['Status_Visual'] = df['Status'].map(map_status)
         
-        # Filtro de Exclusão de Usuários
         usuarios_remover = [
             'ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 
-            'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197'
+            'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO'
         ]
         df = df[~df['Modificado por'].isin(usuarios_remover)]
         return df
@@ -51,28 +49,59 @@ def load_qm():
 df_zc = load_zc()
 df_qm = load_qm()
 
-# Cores Neon
+# Cores
 CORES_MAP = {
     'ABERTO': '#FF4B4B', 'ENCERRADO': '#00F294',
     'Medida Liberada': '#FF4B4B', 'Medida Encerrada': '#00F294'
 }
 
-# --- FILTRO LATERAL (APENAS PARA QM) ---
-st.sidebar.header("📅 Filtros QM")
+# --- BARRA LATERAL (AGORA COM DOIS FILTROS DE DATA) ---
+st.sidebar.title("Filtros")
+
+# 1. Filtro ZC
+st.sidebar.header("📅 Notas ZC (Manutenção)")
+if not df_zc.empty:
+    # Pega data min/max para o padrão
+    min_z = df_zc['Data_Ref'].min().date()
+    max_z = df_zc['Data_Ref'].max().date()
+    
+    # Seletor de Data ZC
+    intervalo_zc = st.sidebar.date_input(
+        "Período de Encerramento:",
+        value=[min_z, max_z],
+        min_value=min_z,
+        max_value=max_z,
+        key="data_zc" # Chave única para não confundir com o outro
+    )
+
+    # Aplica o filtro ZC
+    if len(intervalo_zc) == 2:
+        inicio_z, fim_z = intervalo_zc
+        df_zc_f = df_zc[(df_zc['Data_Ref'].dt.date >= inicio_z) & (df_zc['Data_Ref'].dt.date <= fim_z)]
+    else:
+        df_zc_f = df_zc
+else:
+    df_zc_f = pd.DataFrame()
+
+st.sidebar.markdown("---")
+
+# 2. Filtro QM
+st.sidebar.header("📅 Medidas QM (Qualidade)")
 if not df_qm.empty:
-    min_d = df_qm['Data_Ref'].min().date()
-    max_d = df_qm['Data_Ref'].max().date()
+    min_q = df_qm['Data_Ref'].min().date()
+    max_q = df_qm['Data_Ref'].max().date()
     
     intervalo_qm = st.sidebar.date_input(
-        "Período (QM):",
-        value=[min_d, max_d],
-        min_value=min_d,
-        max_value=max_d
+        "Período de Criação:",
+        value=[min_q, max_q],
+        min_value=min_q,
+        max_value=max_q,
+        key="data_qm"
     )
 
     if len(intervalo_qm) == 2:
-        d_inicio, d_fim = intervalo_qm
-        df_qm_f = df_qm[(df_qm['Data_Ref'].dt.date >= d_inicio) & (df_qm['Data_Ref'].dt.date <= d_fim)]
+        inicio_q, fim_q = intervalo_qm
+        df_qm_f = df_qm[(df_qm['Data_Ref'].dt.date >= inicio_q) & (df_qm['Data_Ref'].dt.date <= fim_q)]
     else:
         df_qm_f = df_qm
 else:
@@ -83,109 +112,77 @@ tab1, tab2 = st.tabs(["📝 NOTAS ZC", "🔧 MEDIDAS QM"])
 
 # --- ABA 1: NOTAS ZC ---
 with tab1:
-    if not df_zc.empty:
+    if not df_zc_f.empty:
         st.subheader("🚀 Performance ZC")
         
-        # Cálculo das métricas
-        abertas_zc = len(df_zc[df_zc['Status sistema'] == 'ABERTO'])
-        encerradas_zc = len(df_zc[df_zc['Status sistema'] == 'ENCERRADO'])
+        abertas_zc = len(df_zc_f[df_zc_f['Status sistema'] == 'ABERTO'])
+        encerradas_zc = len(df_zc_f[df_zc_f['Status sistema'] == 'ENCERRADO'])
         
-        # Cartões de Métricas (Já invertidos como você pediu)
         c1, c2 = st.columns(2)
         c1.metric("Concluídas", encerradas_zc)
         c2.metric("Pendentes", abertas_zc)
 
-        # Preparação dos dados
-        df_zc_bar = df_zc['Status sistema'].value_counts().reset_index()
+        # Gráfico ZC (com ajuste de altura e margem)
+        df_zc_bar = df_zc_f['Status sistema'].value_counts().reset_index()
         df_zc_bar.columns = ['Status', 'Qtd']
 
-        # --- CORREÇÃO DO NÚMERO CORTADO ---
-        # Descobrimos qual é o valor máximo (919) e adicionamos 20% de margem
-        max_valor = df_zc_bar['Qtd'].max()
-        margem_y = max_valor * 1.2 
+        # Margem para o número não cortar
+        max_val = df_zc_bar['Qtd'].max()
+        margem = max_val * 1.2 if max_val > 0 else 10
 
-        # Criação do Gráfico com ALTURA DEFINIDA (height=350)
-        fig_z1 = px.bar(
-            df_zc_bar, 
-            x='Status', 
-            y='Qtd', 
-            text='Qtd', 
-            color='Status',
-            color_discrete_map=CORES_MAP, 
-            title="Volume Total ZC",
-            height=350  # <--- Isso deixa o gráfico menor (mais baixo)
-        )
+        fig_z1 = px.bar(df_zc_bar, x='Status', y='Qtd', text='Qtd', color='Status',
+                        color_discrete_map=CORES_MAP, title="Volume no Período", height=350)
         
-        # Aplicação da margem no eixo Y para o número não cortar
-        fig_z1.update_yaxes(range=[0, margem_y], visible=False) 
-
-        # Barras finas e visual limpo
+        fig_z1.update_yaxes(range=[0, margem], visible=False)
         fig_z1.update_traces(width=0.2, textposition='outside')
-        fig_z1.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)', 
-            showlegend=False,
-            margin=dict(t=40, b=0, l=0, r=0) # Remove margens brancas desnecessárias
-        )
+        fig_z1.update_layout(plot_bgcolor='rgba(0,0,0,0)', showlegend=False, margin=dict(t=40, b=0))
         
         st.plotly_chart(fig_z1, use_container_width=True)
     else:
-        st.error("Sem dados ZC.")
-        
+        st.warning(f"Sem notas ZC encerradas no período selecionado.")
+
 # --- ABA 2: MEDIDAS QM ---
 with tab2:
     if not df_qm_f.empty:
         st.subheader("🔧 Indicadores QM")
 
-        # 1. Gráfico de Produtividade por Usuário
+        # Gráfico Produtividade
         df_user_qm = df_qm_f.groupby(['Modificado por', 'Status_Visual']).size().reset_index(name='Qtd')
         fig_q1 = px.bar(df_user_qm, x='Modificado por', y='Qtd', color='Status_Visual', text='Qtd',
                         barmode='group', color_discrete_map=CORES_MAP, title="Produtividade por Usuário")
         
-        # Ajustei aqui também para 0.2 para manter o padrão
         fig_q1.update_traces(width=0.2, textposition='outside')
-        
         fig_q1.update_layout(plot_bgcolor='rgba(0,0,0,0)', bargap=0.5, xaxis_tickangle=-45)
         st.plotly_chart(fig_q1, use_container_width=True)
         
         st.markdown("---")
 
-        # 2. GRÁFICO DE EVOLUÇÃO DE MEDIDAS FECHADAS
+        # Gráfico Evolução Fechadas
         st.subheader("📈 Evolução de Medidas Fechadas")
-        
-        col_freq, col_vazio = st.columns([1, 3])
+        col_freq, _ = st.columns([1, 3])
         with col_freq:
-            freq_q = st.radio("Visualizar evolução por:", ["Semana", "Mês"], horizontal=True)
+            freq_q = st.radio("Agrupar por:", ["Semana", "Mês"], horizontal=True)
         
         df_fechadas = df_qm_f[df_qm_f['Status'] == 'MEDE'].copy()
         
         if not df_fechadas.empty:
             periodo_char = "W" if "Semana" in freq_q else "M"
             df_fechadas['Periodo'] = df_fechadas['Data_Ref'].dt.to_period(periodo_char).dt.to_timestamp()
-            
             df_evolucao = df_fechadas.groupby('Periodo').size().reset_index(name='Qtd')
             
-            fig_q2 = px.line(
-                df_evolucao, x='Periodo', y='Qtd', text='Qtd', markers=True, 
-                title=f"Quantidade de Medidas Fechadas ({freq_q})",
-                color_discrete_sequence=['#00F294']
-            )
+            fig_q2 = px.line(df_evolucao, x='Periodo', y='Qtd', text='Qtd', markers=True, 
+                             color_discrete_sequence=['#00F294'])
             
-            formato_data = "%d/%m" if "Semana" in freq_q else "%b/%Y"
-            passo_tick = 604800000 if "Semana" in freq_q else "M1"
+            fmt_data = "%d/%m" if "Semana" in freq_q else "%b/%Y"
+            dtick_val = 604800000 if "Semana" in freq_q else "M1"
             
-            fig_q2.update_xaxes(
-                tickformat=formato_data, dtick=passo_tick, showgrid=True, 
-                gridcolor='rgba(255,255,255,0.1)', tickangle=-45
-            )
-            
-            fig_q2.update_traces(textposition="top center", line_shape='spline', line_width=3, marker_size=8)
-            fig_q2.update_layout(
-                plot_bgcolor='rgba(0,0,0,0)', yaxis_visible=False, 
-                xaxis_title="", margin=dict(t=50, l=10, r=10, b=10)
-            )
+            fig_q2.update_xaxes(tickformat=fmt_data, dtick=dtick_val, showgrid=True, 
+                                gridcolor='rgba(255,255,255,0.1)', tickangle=-45)
+            fig_q2.update_traces(textposition="top center", line_shape='spline', line_width=3)
+            fig_q2.update_layout(plot_bgcolor='rgba(0,0,0,0)', yaxis_visible=False, xaxis_title="", margin=dict(t=30))
             
             st.plotly_chart(fig_q2, use_container_width=True)
         else:
-            st.info("Nenhuma medida encerrada encontrada neste período.")
+            st.info("Nenhuma medida fechada neste período.")
     else:
-        st.warning("Sem dados QM para o filtro selecionado.")
+        st.warning("Sem dados QM.")
