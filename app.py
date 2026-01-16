@@ -138,9 +138,9 @@ with tab2:
         
         with col_g1:
             fig_donut = px.pie(df_geral_qm, values='Total', names='Status', hole=0.5,
-                               color='Status', color_discrete_map=CORES_MAP, height=300, template="plotly_dark")
+                               color='Status', color_discrete_map=CORES_MAP, height=200, template="plotly_dark")
             fig_donut.update_traces(textinfo='percent+label', textfont=FONTE_ESTILIZADA)
-            fig_donut.update_layout(showlegend=False, margin=dict(t=30, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)')
+            fig_donut.update_layout(showlegend=False, margin=dict(t=30, b=0, l=0, r=0), paper_bgcolor='rgba(2,0,0,0)')
             st.plotly_chart(fig_donut, use_container_width=True)
 
         st.markdown("---")
