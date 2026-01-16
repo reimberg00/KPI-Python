@@ -3,177 +3,168 @@ import pandas as pd
 import plotly.express as px
 
 # 1. Configuração da Página
-st.set_page_config(page_title="Dashboard Manutenção Integrado", layout="wide")
+st.set_page_config(page_title="Dashboard Estratégia", layout="wide")
+
+# --- ESTILIZAÇÃO CSS PREMIUM (FOCO EM NEGRITO E VISIBILIDADE) ---
+st.markdown("""
+    <style>
+    .stApp { background-color: #0B0E14; color: #FFFFFF; }
+    
+    /* Cards de Métrica */
+    div[data-testid="stMetric"] {
+        background: rgba(22, 27, 34, 0.8);
+        border-radius: 15px;
+        border: 1px solid rgba(0, 242, 148, 0.3);
+        padding: 20px;
+    }
+    
+    /* Textos em NEGRITO EXTREMO */
+    [data-testid="stMetricValue"] { 
+        font-size: 42px !important; 
+        font-weight: 900 !important; 
+        color: #00F294 !important; 
+    }
+    [data-testid="stMetricLabel"] { 
+        font-size: 16px !important; 
+        font-weight: 800 !important; 
+        color: #ADB5BD !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        font-weight: 800 !important;
+        font-size: 18px !important;
+    }
+    h1, h2, h3 { font-weight: 900 !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- FUNÇÃO DE CARREGAMENTO ROBUSTA ---
+def load_file(name):
+    try:
+        # Tenta Excel, depois CSV
+        try:
+            df = pd.read_excel(name)
+        except:
+            # Se falhar Excel, tenta CSV (comum em exportações do SAP)
+            df = pd.read_csv(name, sep=None, engine='python', on_bad_lines='skip')
+        
+        # Limpeza essencial
+        df.columns = df.columns.str.strip()
+        return df
+    except Exception as e:
+        return pd.DataFrame()
+
+# Tenta carregar os arquivos (ajustado para os nomes padrão)
+df_zc = load_file("Notas_ZC.xlsx")
+df_qm = load_file("Notas_QM.xlsx")
+
+# Se o Notas_QM.xlsx não existir, tenta o nome que o sistema costuma gerar no upload
+if df_qm.empty:
+    df_qm = load_file("Notas_QM.xlsx - Planilha1.csv")
+
+# Cores do Dashboard
+CORES = {'ABERTO': '#FF4B4B', 'ENCERRADO': '#00F294', 'Medida Liberada': '#FF4B4B', 'Medida Encerrada': '#00F294'}
 
 st.title("📊 Indicadores Equipe de Estratégia")
 st.markdown("---")
 
-# --- FUNÇÕES DE CARREGAMENTO ---
-def load_data(file_name):
-    try:
-        # Tenta ler como Excel, se falhar tenta como CSV
-        if file_name.endswith('.xlsx'):
-            df = pd.read_excel(file_name)
-        else:
-            df = pd.read_csv(file_name)
-        
-        df.columns = df.columns.str.strip() # Remove espaços dos nomes das colunas
-        return df
-    except Exception as e:
-        st.error(f"Erro ao carregar {file_name}: {e}")
-        return pd.DataFrame()
-
-# Carregamento dos arquivos (Ajuste os nomes se necessário)
-df_zc = load_data("Notas_ZC.xlsx")
-df_qm = load_data("Notas_QM.xlsx")
-
-# Cores
-CORES_MAP = {
-    'ABERTO': '#FF4B4B', 'ENCERRADO': '#00F294',
-    'Medida Liberada': '#FF4B4B', 'Medida Encerrada': '#00F294'
-}
-
-# --- PROCESSAMENTO ZC ---
+# --- PROCESSAMENTO SEGURO ---
+# ZC
 if not df_zc.empty:
-    # Ajuste de data para ZC (Coluna G: Data encermto.)
     col_data_zc = "Data encermto."
     if col_data_zc in df_zc.columns:
         df_zc['Data_Ref'] = pd.to_datetime(df_zc[col_data_zc], errors='coerce')
     else:
-        # Caso o nome da coluna seja diferente na sua planilha
-        st.warning(f"Coluna '{col_data_zc}' não encontrada em Notas_ZC.xlsx")
-        df_zc['Data_Ref'] = pd.to_datetime(df_zc.iloc[:, 6], errors='coerce') # Tenta pela 7ª coluna
+        df_zc['Data_Ref'] = pd.to_datetime(df_zc.iloc[:, 0], errors='coerce') # Fallback
 
-# --- PROCESSAMENTO QM ---
+# QM
 if not df_qm.empty:
-    # Data de referência pela coluna "Modificado em" (Coluna G)
-    df_qm['Data_Ref'] = pd.to_datetime(df_qm['Modificado em'], errors='coerce')
+    # Ajusta data usando "Modificado em" ou similar
+    col_data_qm = "Modificado em" if "Modificado em" in df_qm.columns else "Dta.criação"
+    df_qm['Data_Ref'] = pd.to_datetime(df_qm[col_data_qm], errors='coerce')
     
     # Mapeamento de Status
-    map_status = {'MEDL': 'Medida Liberada', 'MEDE': 'Medida Encerrada'}
-    df_qm['Status_Visual'] = df_qm['Status'].astype(str).str.strip().map(map_status)
+    if 'Status' in df_qm.columns:
+        df_qm['Status_Visual'] = df_qm['Status'].str.strip().map({'MEDL': 'Medida Liberada', 'MEDE': 'Medida Encerrada'})
     
-    # Filtro de Usuários (Removendo quem não é da estratégia da coluna Responsável)
-    usuarios_remover = [
-        'ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 
-        'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197'
-    ]
-    df_qm = df_qm[~df_qm['Responsável'].astype(str).str.strip().isin(usuarios_remover)]
+    # Filtro de Usuários
+    usuarios_remover = ['ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197']
+    col_resp = "Responsável" if "Responsável" in df_qm.columns else "Modificado por"
+    df_qm = df_qm[~df_qm[col_resp].astype(str).str.strip().isin(usuarios_remover)]
 
 # --- BARRA LATERAL (FILTROS) ---
-st.sidebar.title("Filtros de Período")
-
-# Filtro de Data para ZC
+st.sidebar.title("📅 Filtros")
 df_zc_f = df_zc.copy()
+df_qm_f = df_qm.copy()
+
 if not df_zc.empty and 'Data_Ref' in df_zc.columns:
-    df_zc_valid = df_zc.dropna(subset=['Data_Ref'])
-    if not df_zc_valid.empty:
-        min_z, max_z = df_zc_valid['Data_Ref'].min().date(), df_zc_valid['Data_Ref'].max().date()
-        int_zc = st.sidebar.date_input("Período ZC (Encerramento):", [min_z, max_z], key="zc_date")
-        if len(int_zc) == 2:
+    val_zc = df_zc.dropna(subset=['Data_Ref'])
+    if not val_zc.empty:
+        int_zc = st.sidebar.date_input("Período ZC:", [val_zc['Data_Ref'].min().date(), val_zc['Data_Ref'].max().date()], key="z")
+        if isinstance(int_zc, list) and len(int_zc) == 2:
             df_zc_f = df_zc[(df_zc['Data_Ref'].dt.date >= int_zc[0]) & (df_zc['Data_Ref'].dt.date <= int_zc[1])]
 
-# Filtro de Data para QM
-df_qm_f = df_qm.copy()
 if not df_qm.empty and 'Data_Ref' in df_qm.columns:
-    df_qm_valid = df_qm.dropna(subset=['Data_Ref'])
-    if not df_qm_valid.empty:
-        min_q, max_q = df_qm_valid['Data_Ref'].min().date(), df_qm_valid['Data_Ref'].max().date()
-        int_qm = st.sidebar.date_input("Período QM (Modificação):", [min_q, max_q], key="qm_date")
-        if len(int_qm) == 2:
+    val_qm = df_qm.dropna(subset=['Data_Ref'])
+    if not val_qm.empty:
+        int_qm = st.sidebar.date_input("Período QM:", [val_qm['Data_Ref'].min().date(), val_qm['Data_Ref'].max().date()], key="q")
+        if isinstance(int_qm, list) and len(int_qm) == 2:
             df_qm_f = df_qm[(df_qm['Data_Ref'].dt.date >= int_qm[0]) & (df_qm['Data_Ref'].dt.date <= int_qm[1])]
 
-# --- ABAS ---
+# --- CONSTRUÇÃO DAS ABAS ---
 tab1, tab2 = st.tabs(["📝 NOTAS ZC", "🔧 MEDIDAS QM"])
 
-# ABA 1: NOTAS ZC
 with tab1:
-    if not df_zc_f.empty:
+    if not df_zc_f.empty and 'Status sistema' in df_zc_f.columns:
         st.subheader("🚀 Performance ZC")
-        
-        # Lógica de contagem
-        encerradas = len(df_zc_f[df_zc_f['Status sistema'] == 'ENCERRADO'])
-        pendentes = len(df_zc[df_zc['Status sistema'] == 'ABERTO']) # Backlog total
-        
-        c1, c2 = st.columns(2)
-        c1.metric("Concluídas (No Período)", encerradas)
-        c2.metric("Pendentes (Total Backlog)", pendentes)
-        
-        # Gráfico ZC
-        df_zc_plot = pd.DataFrame({
-            'Status': ['ENCERRADO', 'ABERTO'],
-            'Qtd': [encerradas, pendentes]
-        })
-        
-        fig_zc = px.bar(df_zc_plot, x='Status', y='Qtd', text='Qtd', color='Status',
-                        color_discrete_map=CORES_MAP, title="Volume ZC: Entregue vs Pendente")
-        fig_zc.update_traces(textposition='outside')
-        fig_zc.update_layout(plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
-        st.plotly_chart(fig_zc, use_container_width=True)
+        c_l1, col_c, c_l2 = st.columns([1, 1.5, 1]) # Proporção reduzida
+        with col_c:
+            enc = len(df_zc_f[df_zc_f['Status sistema'] == 'ENCERRADO'])
+            pen = len(df_zc[df_zc['Status sistema'] == 'ABERTO'])
+            m1, m2 = st.columns(2)
+            m1.metric("CONCLUÍDAS", enc)
+            m2.metric("PENDENTES", pen)
+            
+            df_p = pd.DataFrame({'Status': ['ENCERRADO', 'ABERTO'], 'Qtd': [enc, pen]})
+            fig_zc = px.bar(df_p, x='Status', y='Qtd', text='Qtd', color='Status',
+                            color_discrete_map=CORES, template="plotly_dark", height=350)
+            fig_zc.update_traces(textfont=dict(size=18, font_weight="bold"), textposition='outside', width=0.4)
+            fig_zc.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', yaxis_visible=False,
+                                 xaxis=dict(tickfont=dict(size=14, font_weight="bold")))
+            st.plotly_chart(fig_zc, use_container_width=True)
     else:
-        st.warning("Dados ZC não encontrados ou filtro sem resultados.")
+        st.warning("Aguardando arquivo Notas_ZC.xlsx ou coluna 'Status sistema' não encontrada.")
 
-# --- ABA 2: MEDIDAS QM ---
 with tab2:
-    if not df_qm_f.empty:
+    if not df_qm_f.empty and 'Status_Visual' in df_qm_f.columns:
         st.subheader("🎯 Visão Geral QM")
-        
-        # 1. Preparação dos dados para o gráfico Geral
-        df_geral_qm = df_qm_f['Status_Visual'].value_counts().reset_index()
-        df_geral_qm.columns = ['Status', 'Total']
-        
-        # 2. Layout de Topo: Métricas e Gráfico de Rosca
         col_m1, col_m2, col_g1 = st.columns([1, 1, 2])
         
-        # Cálculo das métricas para os cards
-        total_encerradas = df_geral_qm[df_geral_qm['Status'] == 'Medida Encerrada']['Total'].sum()
-        total_liberadas = df_geral_qm[df_geral_qm['Status'] == 'Medida Liberada']['Total'].sum()
+        t_enc = len(df_qm_f[df_qm_f['Status'] == 'MEDE'])
+        t_lib = len(df_qm_f[df_qm_f['Status'] == 'MEDL'])
         
-        with col_m1:
-            st.metric("Total Encerradas", int(total_encerradas))
-        with col_m2:
-            st.metric("Total Liberadas", int(total_liberadas))
-            
+        col_m1.metric("ENCERRADAS", t_enc)
+        col_m2.metric("LIBERADAS", t_lib)
+        
         with col_g1:
-            # Gráfico de Rosca (Donut)
-            fig_donut = px.pie(
-                df_geral_qm, 
-                values='Total', 
-                names='Status', 
-                hole=0.5,
-                color='Status',
-                color_discrete_map=CORES_MAP,
-                height=250
-            )
-            fig_donut.update_traces(textinfo='percent+label')
-            fig_donut.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0))
-            st.plotly_chart(fig_donut, use_container_width=True)
+            fig_pie = px.pie(names=['Encerradas', 'Liberadas'], values=[t_enc, t_lib],
+                             hole=0.6, color=['Encerradas', 'Liberadas'],
+                             color_discrete_map={'Encerradas': '#00F294', 'Liberadas': '#FF4B4B'},
+                             template="plotly_dark", height=230)
+            fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0), legend=dict(font=dict(font_weight="bold")))
+            st.plotly_chart(fig_pie, use_container_width=True)
 
         st.markdown("---")
+        st.subheader("🔧 Produtividade Detalhada")
         
-        # 3. Gráfico por Responsável (O detalhamento que já funcionava)
-        st.subheader("🔧 Produtividade Detalhada por Responsável")
+        col_resp_final = "Responsável" if "Responsável" in df_qm_f.columns else "Modificado por"
+        df_u = df_qm_f.groupby([col_resp_final, 'Status_Visual']).size().reset_index(name='Qtd')
         
-        df_user_qm = df_qm_f.groupby(['Responsável', 'Status_Visual']).size().reset_index(name='Qtd')
-        df_user_qm = df_user_qm.sort_values(by='Qtd', ascending=False)
-
-        fig_qm_barra = px.bar(
-            df_user_qm, 
-            x='Responsável', 
-            y='Qtd', 
-            color='Status_Visual', 
-            text='Qtd',
-            barmode='group',
-            color_discrete_map=CORES_MAP
-        )
-        
-        fig_qm_barra.update_traces(textposition='outside')
-        fig_qm_barra.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)', 
-            xaxis_tickangle=-45,
-            margin=dict(t=20)
-        )
-        st.plotly_chart(fig_qm_barra, use_container_width=True)
-        
+        fig_qm = px.bar(df_u, x=col_resp_final, y='Qtd', color='Status_Visual', text='Qtd',
+                        barmode='group', color_discrete_map=CORES, template="plotly_dark")
+        fig_qm.update_traces(textfont=dict(size=14, font_weight="bold"), textposition='outside')
+        fig_qm.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+                             xaxis=dict(tickfont=dict(font_weight="bold"), tickangle=-45), 
+                             yaxis_visible=False, bargap=0.3)
+        st.plotly_chart(fig_qm, use_container_width=True)
     else:
-        st.warning("Sem dados QM para exibir (verifique os filtros ou os arquivos).")
+        st.warning("Aguardando arquivo Notas_QM.xlsx com colunas 'Status' e 'Responsável'.")
