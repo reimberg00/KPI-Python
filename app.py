@@ -112,18 +112,31 @@ tab1, tab2 = st.tabs(["📝 NOTAS ZC", "🔧 MEDIDAS QM"])
 
 # --- ABA 1: NOTAS ZC ---
 with tab1:
-    if not df_zc_f.empty:
+    if not df_zc.empty:
         st.subheader("🚀 Performance ZC")
         
-        abertas_zc = len(df_zc_f[df_zc_f['Status sistema'] == 'ABERTO'])
+        # --- CORREÇÃO DA LÓGICA DE FILTRO ---
+        # 1. Pendentes: Usamos o df_zc ORIGINAL (sem filtro de data) para ver todo o backlog
+        abertas_zc = len(df_zc[df_zc['Status sistema'] == 'ABERTO'])
+        
+        # 2. Encerradas: Usamos o df_zc_f (COM filtro) para ver a produção do período
         encerradas_zc = len(df_zc_f[df_zc_f['Status sistema'] == 'ENCERRADO'])
         
+        # Métricas
         c1, c2 = st.columns(2)
-        c1.metric("Concluídas", encerradas_zc)
-        c2.metric("Pendentes", abertas_zc)
+        c1.metric("Concluídas (No Período)", encerradas_zc)
+        c2.metric("Pendentes (Total Backlog)", abertas_zc)
 
-        # Gráfico ZC (com ajuste de altura e margem)
-        df_zc_bar = df_zc_f['Status sistema'].value_counts().reset_index()
+        # --- PREPARAÇÃO DO GRÁFICO MISTO ---
+        # Queremos mostrar no gráfico: As fechadas do mês VS O total de abertas
+        df_fechadas_periodo = df_zc_f[df_zc_f['Status sistema'] == 'ENCERRADO']
+        df_abertas_total = df_zc[df_zc['Status sistema'] == 'ABERTO']
+        
+        # Juntamos os dois grupos para o gráfico
+        df_grafico = pd.concat([df_fechadas_periodo, df_abertas_total])
+        
+        # Montagem dos dados para o Plotly
+        df_zc_bar = df_grafico['Status sistema'].value_counts().reset_index()
         df_zc_bar.columns = ['Status', 'Qtd']
 
         # Margem para o número não cortar
@@ -131,7 +144,7 @@ with tab1:
         margem = max_val * 1.2 if max_val > 0 else 10
 
         fig_z1 = px.bar(df_zc_bar, x='Status', y='Qtd', text='Qtd', color='Status',
-                        color_discrete_map=CORES_MAP, title="Volume no Período", height=350)
+                        color_discrete_map=CORES_MAP, title="Volume: Entregue vs Pendente", height=350)
         
         fig_z1.update_yaxes(range=[0, margem], visible=False)
         fig_z1.update_traces(width=0.2, textposition='outside')
@@ -139,7 +152,7 @@ with tab1:
         
         st.plotly_chart(fig_z1, use_container_width=True)
     else:
-        st.warning(f"Sem notas ZC encerradas no período selecionado.")
+        st.warning(f"Sem dados ZC carregados.")
 
 # --- ABA 2: MEDIDAS QM ---
 with tab2:
