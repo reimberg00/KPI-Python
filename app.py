@@ -38,7 +38,7 @@ def load_qm():
         
         usuarios_remover = [
             'ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 
-            'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO'
+            'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197'
         ]
         df = df[~df['Modificado por'].isin(usuarios_remover)]
         return df
