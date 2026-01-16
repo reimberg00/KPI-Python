@@ -105,4 +105,26 @@ with tab1:
             'Qtd': [encerradas, pendentes]
         })
         
-        fig_zc = px.bar(df_zc_plot, x
+        fig_zc = px.bar(df_zc_plot, x='Status', y='Qtd', text='Qtd', color='Status',
+                        color_discrete_map=CORES_MAP, title="Volume ZC: Entregue vs Pendente")
+        fig_zc.update_traces(textposition='outside')
+        fig_zc.update_layout(plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
+        st.plotly_chart(fig_zc, use_container_width=True)
+    else:
+        st.warning("Dados ZC não encontrados ou filtro sem resultados.")
+
+# ABA 2: MEDIDAS QM
+with tab2:
+    if not df_qm_f.empty:
+        st.subheader("🔧 Produtividade QM por Responsável")
+        
+        df_user_qm = df_qm_f.groupby(['Responsável', 'Status_Visual']).size().reset_index(name='Qtd')
+        df_user_qm = df_user_qm.sort_values(by='Qtd', ascending=False)
+
+        fig_qm = px.bar(df_user_qm, x='Responsável', y='Qtd', color='Status_Visual', text='Qtd',
+                        barmode='group', color_discrete_map=CORES_MAP)
+        fig_qm.update_traces(textposition='outside')
+        fig_qm.update_layout(plot_bgcolor='rgba(0,0,0,0)', xaxis_tickangle=-45)
+        st.plotly_chart(fig_qm, use_container_width=True)
+    else:
+        st.warning("Dados QM não encontrados ou filtro sem resultados.")
