@@ -2,43 +2,46 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# 1. Configuração da Página e Tema
+# 1. Configuração de Página
 st.set_page_config(page_title="Dashboard Estratégia", layout="wide")
 
-# --- ESTILIZAÇÃO CSS (MODERNO/DARK) ---
+# --- CSS PARA DEIXAR IGUAL À IMAGEM (ESTILO DARK/PREMIUM) ---
 st.markdown("""
     <style>
-    /* Fundo principal azul-noite */
-    .stApp { background-color: #0E1117; color: #FFFFFF; }
+    /* Fundo escuro total */
+    .stApp { background-color: #0B0E14; color: #E0E0E0; }
     
-    /* Estilização dos Cards de Métrica */
+    /* Estilização dos Cards (Métricas) */
     div[data-testid="stMetric"] {
-        background-color: #161B22;
-        padding: 15px;
-        border-radius: 12px;
-        border: 1px solid #30363D;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.5);
+        background: rgba(22, 27, 34, 0.7);
+        border-radius: 15px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 20px;
+        transition: transform 0.3s;
     }
-    [data-testid="stMetricValue"] { font-size: 32px; font-weight: bold; color: #00F294 !important; }
-    [data-testid="stMetricLabel"] { font-size: 16px; color: #ADB5BD !important; }
-    
-    /* Abas estilizadas */
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        background-color: #161B22;
-        border-radius: 8px 8px 0px 0px;
-        color: white;
-    }
-    .stTabs [aria-selected="true"] { background-color: #00F294 !important; color: #000 !important; }
+    div[data-testid="stMetric"]:hover { transform: translateY(-5px); border-color: #00F294; }
 
-    /* Divisores */
-    hr { border: 0.1px solid #30363D; }
+    /* Customização dos textos das métricas */
+    [data-testid="stMetricValue"] { font-size: 38px !important; color: #00F294 !important; font-family: 'Inter', sans-serif; }
+    [data-testid="stMetricLabel"] { font-size: 14px !important; color: #8B949E !important; text-transform: uppercase; letter-spacing: 1px; }
+
+    /* Estilo das Abas */
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent; }
+    .stTabs [data-baseweb="tab"] {
+        color: #8B949E;
+        background-color: transparent;
+        font-weight: 600;
+        border-bottom: 2px solid transparent;
+    }
+    .stTabs [aria-selected="true"] { color: #00F294 !important; border-bottom: 2px solid #00F294 !important; }
+
+    /* Barra Lateral */
+    [data-testid="stSidebar"] { background-color: #0D1117; border-right: 1px solid #30363D; }
+    
+    /* Títulos */
+    h1, h2, h3 { font-family: 'Inter', sans-serif; font-weight: 700; color: #FFFFFF; }
     </style>
     """, unsafe_allow_html=True)
-
-st.title("📊 Indicadores Equipe de Estratégia")
-st.markdown("---")
 
 # --- FUNÇÕES DE CARREGAMENTO ---
 def load_data(file_name):
@@ -47,112 +50,83 @@ def load_data(file_name):
         else: df = pd.read_csv(file_name)
         df.columns = df.columns.str.strip()
         return df
-    except Exception as e:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
-# Carregamento
 df_zc = load_data("Notas_ZC.xlsx")
 df_qm = load_data("Notas_QM.xlsx")
 
-# Configuração de Cores e Tema dos Gráficos
-CORES_MAP = {
-    'ABERTO': '#FF4B4B', 'ENCERRADO': '#00F294',
-    'Medida Liberada': '#FF4B4B', 'Medida Encerrada': '#00F294'
-}
-TEMPLATE_GRAFICO = "plotly_dark"
+# Cores e Template
+CORES = {'ABERTO': '#FF4B4B', 'ENCERRADO': '#00F294', 'Medida Liberada': '#FF4B4B', 'Medida Encerrada': '#00F294'}
 
-# --- PROCESSAMENTO ZC ---
-if not df_zc.empty:
-    col_data_zc = "Data encermto."
-    if col_data_zc in df_zc.columns:
-        df_zc['Data_Ref'] = pd.to_datetime(df_zc[col_data_zc], errors='coerce')
-    else:
-        df_zc['Data_Ref'] = pd.to_datetime(df_zc.iloc[:, 6], errors='coerce')
-
-# --- PROCESSAMENTO QM ---
-if not df_qm.empty:
-    df_qm['Data_Ref'] = pd.to_datetime(df_qm['Modificado em'], errors='coerce')
-    map_status = {'MEDL': 'Medida Liberada', 'MEDE': 'Medida Encerrada'}
-    df_qm['Status_Visual'] = df_qm['Status'].astype(str).str.strip().map(map_status)
-    
-    usuarios_remover = ['ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197']
-    df_qm = df_qm[~df_qm['Responsável'].astype(str).str.strip().isin(usuarios_remover)]
-
-# --- BARRA LATERAL ---
-st.sidebar.title("📅 Filtros de Período")
-
-df_zc_f = df_zc.copy()
-if not df_zc.empty and 'Data_Ref' in df_zc.columns:
-    df_zc_valid = df_zc.dropna(subset=['Data_Ref'])
-    if not df_zc_valid.empty:
-        min_z, max_z = df_zc_valid['Data_Ref'].min().date(), df_zc_valid['Data_Ref'].max().date()
-        int_zc = st.sidebar.date_input("Período ZC:", [min_z, max_z], key="zc_date")
-        if len(int_zc) == 2:
-            df_zc_f = df_zc[(df_zc['Data_Ref'].dt.date >= int_zc[0]) & (df_zc['Data_Ref'].dt.date <= int_zc[1])]
-
-df_qm_f = df_qm.copy()
-if not df_qm.empty and 'Data_Ref' in df_qm.columns:
-    df_qm_valid = df_qm.dropna(subset=['Data_Ref'])
-    if not df_qm_valid.empty:
-        min_q, max_q = df_qm_valid['Data_Ref'].min().date(), df_qm_valid['Data_Ref'].max().date()
-        int_qm = st.sidebar.date_input("Período QM:", [min_q, max_q], key="qm_date")
-        if len(int_qm) == 2:
-            df_qm_f = df_qm[(df_qm['Data_Ref'].dt.date >= int_qm[0]) & (df_qm['Data_Ref'].dt.date <= int_qm[1])]
+st.title("📊 Indicadores Equipe de Estratégia")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # --- ABAS ---
 tab1, tab2 = st.tabs(["📝 NOTAS ZC", "🔧 MEDIDAS QM"])
 
-# ABA 1: NOTAS ZC (PROPORÇÃO MENOR)
+# ABA 1: NOTAS ZC (REDUZIDO E LIMPO)
 with tab1:
-    if not df_zc_f.empty:
-        st.subheader("🚀 Performance de Manutenção")
-        
-        # Centralizando e reduzindo a largura com colunas
-        c_vazia1, col_central, c_vazia2 = st.columns([1, 2, 1])
-        
-        with col_central:
-            enc = len(df_zc_f[df_zc_f['Status sistema'] == 'ENCERRADO'])
+    if not df_zc.empty:
+        st.subheader("🚀 Visão Geral ZC")
+        c1, c2, c3 = st.columns([1, 1.5, 1]) # Ocupa o centro
+        with c2:
+            enc = len(df_zc[df_zc['Status sistema'] == 'ENCERRADO'])
             pen = len(df_zc[df_zc['Status sistema'] == 'ABERTO'])
             
-            mc1, mc2 = st.columns(2)
-            mc1.metric("Concluídas", enc)
-            mc2.metric("Pendentes", pen)
+            # Cards lado a lado
+            col_m1, col_m2 = st.columns(2)
+            col_m1.metric("CONCLUÍDAS", enc)
+            col_m2.metric("PENDENTES", pen)
             
-            df_z_p = pd.DataFrame({'Status': ['ENCERRADO', 'ABERTO'], 'Qtd': [enc, pen]})
-            fig_zc = px.bar(df_z_p, x='Status', y='Qtd', text='Qtd', color='Status',
-                            color_discrete_map=CORES_MAP, template=TEMPLATE_GRAFICO, height=300)
-            fig_zc.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', showlegend=False)
+            # Gráfico Minimalista
+            df_z = pd.DataFrame({'Status': ['ENCERRADO', 'ABERTO'], 'Qtd': [enc, pen]})
+            fig_zc = px.bar(df_z, x='Status', y='Qtd', text='Qtd', color='Status',
+                            color_discrete_map=CORES, template="plotly_dark", height=300)
+            fig_zc.update_traces(marker_line_width=0, textposition='outside', width=0.4)
+            fig_zc.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', 
+                                 yaxis_visible=False, xaxis_title="", showlegend=False)
             st.plotly_chart(fig_zc, use_container_width=True)
-    else:
-        st.warning("Dados ZC indisponíveis.")
 
-# ABA 2: MEDIDAS QM (VISUAL MODERNO)
+# ABA 2: MEDIDAS QM (FIEL À IMAGEM)
 with tab2:
-    if not df_qm_f.empty:
-        st.subheader("🎯 Visão Geral da Qualidade")
+    if not df_qm.empty:
+        # Processamento QM
+        df_qm['Status_Visual'] = df_qm['Status'].str.strip().map({'MEDL': 'Medida Liberada', 'MEDE': 'Medida Encerrada'})
         
-        # Grid de Topo
-        col_m1, col_m2, col_g1 = st.columns([1, 1, 2])
+        st.subheader("🎯 Visão Geral QM")
         
-        df_geral = df_qm_f['Status_Visual'].value_counts().reset_index()
-        df_geral.columns = ['Status', 'Total']
+        # Grid superior: Métricas e Rosca
+        m1, m2, g1 = st.columns([1, 1, 2])
         
-        t_enc = df_geral[df_geral['Status'] == 'Medida Encerrada']['Total'].sum()
-        t_lib = df_geral[df_geral['Status'] == 'Medida Liberada']['Total'].sum()
+        total_e = len(df_qm[df_qm['Status'] == 'MEDE'])
+        total_l = len(df_qm[df_qm['Status'] == 'MEDL'])
         
-        with col_m1: st.metric("Encerradas", int(t_enc))
-        with col_m2: st.metric("Liberadas", int(t_lib))
-        with col_g1:
-            fig_pie = px.pie(df_geral, values='Total', names='Status', hole=0.6,
-                             color='Status', color_discrete_map=CORES_MAP, template=TEMPLATE_GRAFICO, height=220)
-            fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+        m1.metric("ENCERRADAS", total_e)
+        m2.metric("LIBERADAS", total_l)
+        
+        with g1:
+            fig_pie = px.pie(names=['Encerradas', 'Liberadas'], values=[total_e, total_l],
+                             hole=0.7, color=['Encerradas', 'Liberadas'],
+                             color_discrete_map={'Encerradas': '#00F294', 'Liberadas': '#FF4B4B'})
+            fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0), height=200, 
+                                  paper_bgcolor='rgba(0,0,0,0)', showlegend=True, template="plotly_dark")
+            fig_pie.update_traces(textinfo='none') # Limpo igual à imagem
             st.plotly_chart(fig_pie, use_container_width=True)
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<hr>", unsafe_allow_html=True)
         st.subheader("🔧 Produtividade Detalhada")
         
-        df_u = df_qm_f.groupby(['Responsável', 'Status_Visual']).size().reset_index(name='Qtd')
+        df_u = df_qm.groupby(['Responsável', 'Status_Visual']).size().reset_index(name='Qtd')
         fig_u = px.bar(df_u, x='Responsável', y='Qtd', color='Status_Visual', text='Qtd',
-                       barmode='group', color_discrete_map=CORES_MAP, template=TEMPLATE_GRAFICO)
-        fig_u.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', xaxis_tickangle=-45)
+                       barmode='group', color_discrete_map=CORES, template="plotly_dark")
+        
+        # Estilização das Barras para o estilo "Moderno"
+        fig_u.update_traces(marker_line_width=0, textposition='outside')
+        fig_u.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)', 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            xaxis_tickangle=-45,
+            yaxis_visible=False, # Eixo Y oculto para visual mais limpo
+            bargap=0.3
+        )
         st.plotly_chart(fig_u, use_container_width=True)
