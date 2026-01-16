@@ -13,7 +13,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("📊 Gestão de Notas e Medidas SAP")
+st.title("📊 Indicadores Equipe de Estratégia")
 st.markdown("---")
 
 # --- FUNÇÕES DE CARREGAMENTO ---
