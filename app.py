@@ -16,16 +16,18 @@ st.markdown("""
         font-size: 50px !important; 
         font-weight: 900 !important; 
         color: #FFFFFF !important; 
+        font: bold;
     }
     /* Estilo do rótulo da métrica */
     [data-testid="stMetricLabel"] { 
         font-size: 22px !important; 
         font-weight: 800 !important; 
         color: #FFFFFF !important; 
+        font:bold;
     }
     /* Estilo dos títulos e textos das abas */
     .stTabs [data-baseweb="tab"] { font-weight: 900 !important; font-size: 20px !important; color: #FFFFFF !important; }
-    h1, h2, h3, p { font-weight: 900 !important; color: #FFFFFF !important; }
+    h1, h2, h3, p { font-weight: 900 !important; color: #FF4466 !important; }
     
     /* Ajuste para que o divisor também fique visível */
     hr { border: 1px solid #30363D; }
