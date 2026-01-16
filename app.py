@@ -5,11 +5,24 @@ import plotly.express as px
 # 1. Configuração da Página
 st.set_page_config(page_title="Dashboard Manutenção Integrado", layout="wide")
 
-# --- ESTILIZAÇÃO CSS PARA AS MÉTRICAS DO STREAMLIT ---
+# --- CSS PARA FORMATAR AS MÉTRICAS DO STREAMLIT (TEXTO GRANDE, BRANCO E NEGRITO) ---
 st.markdown("""
     <style>
-    [data-testid="stMetricValue"] { font-size: 35px; font-weight: bold; color: #FFFFFF; }
-    [data-testid="stMetricLabel"] { font-size: 18px; font-weight: bold; color: #FFFFFF; }
+    /* Estilo dos números das métricas */
+    [data-testid="stMetricValue"] { 
+        font-size: 45px !important; 
+        font-weight: 900 !important; 
+        color: #FFFFFF !important; 
+    }
+    /* Estilo dos rótulos (labels) das métricas */
+    [data-testid="stMetricLabel"] { 
+        font-size: 20px !important; 
+        font-weight: 800 !important; 
+        color: #FFFFFF !important; 
+    }
+    /* Títulos de abas e headers */
+    .stTabs [data-baseweb="tab"] { font-weight: 800 !important; font-size: 18px !important; }
+    h1, h2, h3 { font-weight: 900 !important; color: #FFFFFF !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -50,7 +63,11 @@ if not df_qm.empty:
     df_qm['Data_Ref'] = pd.to_datetime(df_qm['Modificado em'], errors='coerce')
     map_status = {'MEDL': 'Medida Liberada', 'MEDE': 'Medida Encerrada'}
     df_qm['Status_Visual'] = df_qm['Status'].astype(str).str.strip().map(map_status)
-    usuarios_remover = ['ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197']
+    
+    usuarios_remover = [
+        'ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 
+        'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197'
+    ]
     df_qm = df_qm[~df_qm['Responsável'].astype(str).str.strip().isin(usuarios_remover)]
 
 # --- BARRA LATERAL ---
@@ -77,29 +94,27 @@ tab1, tab2 = st.tabs(["📝 NOTAS ZC", "🔧 MEDIDAS QM"])
 with tab1:
     if not df_zc_f.empty:
         st.subheader("🚀 Performance ZC")
-        encerradas = len(df_zc_f[df_zc_f['Status sistema'] == 'ENCERRADO'])
-        pendentes = len(df_zc[df_zc['Status sistema'] == 'ABERTO'])
+        enc = len(df_zc_f[df_zc_f['Status sistema'] == 'ENCERRADO'])
+        pen = len(df_zc[df_zc['Status sistema'] == 'ABERTO'])
         
         c1, c2 = st.columns(2)
-        c1.metric("Concluídas (No Período)", encerradas)
-        c2.metric("Pendentes (Total Backlog)", pendentes)
+        c1.metric("CONCLUÍDAS", enc)
+        c2.metric("PENDENTES", pen)
         
-        df_zc_plot = pd.DataFrame({'Status': ['ENCERRADO', 'ABERTO'], 'Qtd': [encerradas, pendentes]})
-        
+        df_zc_plot = pd.DataFrame({'Status': ['ENCERRADO', 'ABERTO'], 'Qtd': [enc, pen]})
         fig_zc = px.bar(df_zc_plot, x='Status', y='Qtd', text='Qtd', color='Status',
-                        color_discrete_map=CORES_MAP, title="Volume ZC: Entregue vs Pendente")
+                        color_discrete_map=CORES_MAP, template="plotly_dark")
         
-        # --- FORMATAÇÃO DO GRÁFICO ZC ---
+        # --- FORMATAÇÃO DOS DADOS NO GRÁFICO ZC ---
         fig_zc.update_traces(
-            textposition='outside',
-            textfont=dict(size=18, color='white', family='Arial black') # Números em cima das barras
+            textfont=dict(size=22, color='white', family='Arial Black'),
+            textposition='outside'
         )
         fig_zc.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            showlegend=False,
-            xaxis=dict(tickfont=dict(size=16, color='white', family='Arial black')), # Texto do Eixo X
-            font=dict(color='white', weight='bold')
+            xaxis=dict(tickfont=dict(size=18, color='white', family='Arial Black'), title=""),
+            yaxis_visible=False
         )
         st.plotly_chart(fig_zc, use_container_width=True)
 
@@ -111,44 +126,42 @@ with tab2:
         df_geral_qm.columns = ['Status', 'Total']
         
         col_m1, col_m2, col_g1 = st.columns([1, 1, 2])
-        total_encerradas = df_geral_qm[df_geral_qm['Status'] == 'Medida Encerrada']['Total'].sum()
-        total_liberadas = df_geral_qm[df_geral_qm['Status'] == 'Medida Liberada']['Total'].sum()
+        t_e = df_geral_qm[df_geral_qm['Status'] == 'Medida Encerrada']['Total'].sum()
+        t_l = df_geral_qm[df_geral_qm['Status'] == 'Medida Liberada']['Total'].sum()
         
-        with col_m1: st.metric("Total Encerradas", int(total_encerradas))
-        with col_m2: st.metric("Total Liberadas", int(total_liberadas))
+        with col_m1: st.metric("ENCERRADAS", int(t_e))
+        with col_m2: st.metric("LIBERADAS", int(t_l))
         
         with col_g1:
             fig_donut = px.pie(df_geral_qm, values='Total', names='Status', hole=0.5,
-                               color='Status', color_discrete_map=CORES_MAP, height=250)
+                               color='Status', color_discrete_map=CORES_MAP, height=280, template="plotly_dark")
             
-            # --- FORMATAÇÃO DO GRÁFICO DONUT ---
+            # --- FORMATAÇÃO DOS DADOS NO GRÁFICO DONUT ---
             fig_donut.update_traces(
                 textinfo='percent+label',
-                textfont=dict(size=16, color='white', family='Arial black')
+                textfont=dict(size=18, color='white', family='Arial Black')
             )
-            fig_donut.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)')
+            fig_donut.update_layout(showlegend=False, margin=dict(t=30, b=0, l=0, r=0), paper_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_donut, use_container_width=True)
 
         st.markdown("---")
         st.subheader("🔧 Produtividade Detalhada por Responsável")
-        df_user_qm = df_qm_f.groupby(['Responsável', 'Status_Visual']).size().reset_index(name='Qtd')
-        df_user_qm = df_user_qm.sort_values(by='Qtd', ascending=False)
+        df_u = df_qm_f.groupby(['Responsável', 'Status_Visual']).size().reset_index(name='Qtd')
+        df_u = df_u.sort_values(by='Qtd', ascending=False)
 
-        fig_qm_barra = px.bar(df_user_qm, x='Responsável', y='Qtd', color='Status_Visual', text='Qtd',
-                              barmode='group', color_discrete_map=CORES_MAP)
+        fig_qm = px.bar(df_u, x='Responsável', y='Qtd', color='Status_Visual', text='Qtd',
+                        barmode='group', color_discrete_map=CORES_MAP, template="plotly_dark")
         
-        # --- FORMATAÇÃO DO GRÁFICO POR RESPONSÁVEL ---
-        fig_qm_barra.update_traces(
-            textposition='outside',
-            textfont=dict(size=16, color='white', family='Arial black') # Números em negrito
+        # --- FORMATAÇÃO DOS DADOS NO GRÁFICO DE BARRAS QM ---
+        fig_qm.update_traces(
+            textfont=dict(size=18, color='white', family='Arial Black'),
+            textposition='outside'
         )
-        fig_qm_barra.update_layout(
+        fig_qm.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
-            xaxis=dict(tickfont=dict(size=14, color='white', family='Arial black')), # Nomes embaixo
-            legend=dict(font=dict(size=14, color='white', family='Arial black')), # Legenda lateral
-            margin=dict(t=20)
+            xaxis=dict(tickfont=dict(size=14, color='white', family='Arial Black'), title=""),
+            yaxis_visible=False,
+            legend=dict(font=dict(size=14, color='white', family='Arial Black'))
         )
-        st.plotly_chart(fig_qm_barra, use_container_width=True)
-    else:
-        st.warning("Sem dados QM para exibir.")
+        st.plotly_chart(fig_qm, use_container_width=True)
