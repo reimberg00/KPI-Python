@@ -40,7 +40,7 @@ def load_qm():
         # Filtro de Exclusão de Usuários
         usuarios_remover = [
             'ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 
-            'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO'
+            'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197'
         ]
         df = df[~df['Modificado por'].isin(usuarios_remover)]
         return df
@@ -90,28 +90,47 @@ with tab1:
         abertas_zc = len(df_zc[df_zc['Status sistema'] == 'ABERTO'])
         encerradas_zc = len(df_zc[df_zc['Status sistema'] == 'ENCERRADO'])
         
-        # --- AJUSTE 1: Inversão de Posição ---
-        # Coluna 1 agora mostra Concluídas, Coluna 2 mostra Pendentes
+        # Cartões de Métricas (Já invertidos como você pediu)
         c1, c2 = st.columns(2)
         c1.metric("Concluídas", encerradas_zc)
         c2.metric("Pendentes", abertas_zc)
-        # ------------------------------------
 
-        # Gráfico de Barras
+        # Preparação dos dados
         df_zc_bar = df_zc['Status sistema'].value_counts().reset_index()
         df_zc_bar.columns = ['Status', 'Qtd']
-        fig_z1 = px.bar(df_zc_bar, x='Status', y='Qtd', text='Qtd', color='Status',
-                        color_discrete_map=CORES_MAP, title="Volume Total ZC")
+
+        # --- CORREÇÃO DO NÚMERO CORTADO ---
+        # Descobrimos qual é o valor máximo (919) e adicionamos 20% de margem
+        max_valor = df_zc_bar['Qtd'].max()
+        margem_y = max_valor * 1.2 
+
+        # Criação do Gráfico com ALTURA DEFINIDA (height=350)
+        fig_z1 = px.bar(
+            df_zc_bar, 
+            x='Status', 
+            y='Qtd', 
+            text='Qtd', 
+            color='Status',
+            color_discrete_map=CORES_MAP, 
+            title="Volume Total ZC",
+            height=350  # <--- Isso deixa o gráfico menor (mais baixo)
+        )
         
-        # --- AJUSTE 2: Barras menores (width=0.2) ---
+        # Aplicação da margem no eixo Y para o número não cortar
+        fig_z1.update_yaxes(range=[0, margem_y], visible=False) 
+
+        # Barras finas e visual limpo
         fig_z1.update_traces(width=0.2, textposition='outside')
-        # -------------------------------------------
+        fig_z1.update_layout(
+            plot_bgcolor='rgba(0,0,0,0)', 
+            showlegend=False,
+            margin=dict(t=40, b=0, l=0, r=0) # Remove margens brancas desnecessárias
+        )
         
-        fig_z1.update_layout(plot_bgcolor='rgba(0,0,0,0)', showlegend=False, yaxis_visible=False)
         st.plotly_chart(fig_z1, use_container_width=True)
     else:
         st.error("Sem dados ZC.")
-
+        
 # --- ABA 2: MEDIDAS QM ---
 with tab2:
     if not df_qm_f.empty:
