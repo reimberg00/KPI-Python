@@ -5,23 +5,24 @@ import plotly.express as px
 # 1. Configuração da Página
 st.set_page_config(page_title="Dashboard Manutenção Integrado", layout="wide")
 
-# --- CSS PARA FORMATAR AS MÉTRICAS DO STREAMLIT (TEXTO GRANDE, BRANCO E NEGRITO) ---
+# --- CSS PARA FORÇAR ESCRITA GRANDE, BRANCA E EM NEGRITO NAS MÉTRICAS ---
 st.markdown("""
     <style>
-    /* Estilo dos números das métricas */
+    /* Estilo do número principal da métrica */
     [data-testid="stMetricValue"] { 
-        font-size: 45px !important; 
+        font-size: 50px !important; 
         font-weight: 900 !important; 
         color: #FFFFFF !important; 
     }
-    /* Estilo dos rótulos (labels) das métricas */
+    /* Estilo do rótulo da métrica */
     [data-testid="stMetricLabel"] { 
-        font-size: 20px !important; 
+        font-size: 22px !important; 
         font-weight: 800 !important; 
         color: #FFFFFF !important; 
     }
-    /* Títulos de abas e headers */
-    .stTabs [data-baseweb="tab"] { font-weight: 800 !important; font-size: 18px !important; }
+    /* Estilo dos títulos de abas */
+    .stTabs [data-baseweb="tab"] { font-weight: 800 !important; font-size: 20px !important; color: #FFFFFF !important; }
+    /* Títulos gerais */
     h1, h2, h3 { font-weight: 900 !important; color: #FFFFFF !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -63,11 +64,7 @@ if not df_qm.empty:
     df_qm['Data_Ref'] = pd.to_datetime(df_qm['Modificado em'], errors='coerce')
     map_status = {'MEDL': 'Medida Liberada', 'MEDE': 'Medida Encerrada'}
     df_qm['Status_Visual'] = df_qm['Status'].astype(str).str.strip().map(map_status)
-    
-    usuarios_remover = [
-        'ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 
-        'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197'
-    ]
+    usuarios_remover = ['ABORIN', 'SANT1733', 'WILL8526', 'MORE4174', 'VIEI2975', 'HORSIM', 'PINT5850', 'MOLL2381', 'SANC8196', 'RAUL1806', 'FVALERIO', 'GUIM1197']
     df_qm = df_qm[~df_qm['Responsável'].astype(str).str.strip().isin(usuarios_remover)]
 
 # --- BARRA LATERAL ---
@@ -114,7 +111,8 @@ with tab1:
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             xaxis=dict(tickfont=dict(size=18, color='white', family='Arial Black'), title=""),
-            yaxis_visible=False
+            yaxis_visible=False,
+            font=dict(color='white')
         )
         st.plotly_chart(fig_zc, use_container_width=True)
 
@@ -134,9 +132,8 @@ with tab2:
         
         with col_g1:
             fig_donut = px.pie(df_geral_qm, values='Total', names='Status', hole=0.5,
-                               color='Status', color_discrete_map=CORES_MAP, height=280, template="plotly_dark")
+                               color='Status', color_discrete_map=CORES_MAP, height=300, template="plotly_dark")
             
-            # --- FORMATAÇÃO DOS DADOS NO GRÁFICO DONUT ---
             fig_donut.update_traces(
                 textinfo='percent+label',
                 textfont=dict(size=18, color='white', family='Arial Black')
@@ -149,19 +146,19 @@ with tab2:
         df_u = df_qm_f.groupby(['Responsável', 'Status_Visual']).size().reset_index(name='Qtd')
         df_u = df_u.sort_values(by='Qtd', ascending=False)
 
-        fig_qm = px.bar(df_u, x='Responsável', y='Qtd', color='Status_Visual', text='Qtd',
-                        barmode='group', color_discrete_map=CORES_MAP, template="plotly_dark")
+        fig_qm_barra = px.bar(df_u, x='Responsável', y='Qtd', color='Status_Visual', text='Qtd',
+                              barmode='group', color_discrete_map=CORES_MAP, template="plotly_dark")
         
         # --- FORMATAÇÃO DOS DADOS NO GRÁFICO DE BARRAS QM ---
-        fig_qm.update_traces(
+        fig_qm_barra.update_traces(
             textfont=dict(size=18, color='white', family='Arial Black'),
             textposition='outside'
         )
-        fig_qm.update_layout(
+        fig_qm_barra.update_layout(
             plot_bgcolor='rgba(0,0,0,0)',
             paper_bgcolor='rgba(0,0,0,0)',
             xaxis=dict(tickfont=dict(size=14, color='white', family='Arial Black'), title=""),
             yaxis_visible=False,
-            legend=dict(font=dict(size=14, color='white', family='Arial Black'))
+            legend=dict(font=dict(size=16, color='white', family='Arial Black'))
         )
-        st.plotly_chart(fig_qm, use_container_width=True)
+        st.plotly_chart(fig_qm_barra, use_container_width=True)
